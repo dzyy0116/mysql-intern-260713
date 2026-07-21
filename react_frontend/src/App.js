@@ -1,87 +1,95 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { Layout, Menu } from 'antd';
+import EChartsReact from 'echarts-for-react';
+import "antd/dist/reset.css";
+
+const { Sider, Content } = Layout;
 
 function App() {
-  // 三个输入框绑定状态
-  const [input1, setInput1] = useState('');
-  const [input2, setInput2] = useState('');
-  const [input3, setInput3] = useState('');
-  // 后端返回结果展示
-  const [resMsg, setResMsg] = useState('');
+  const [activeKey, setActiveKey] = useState("year");
+  const [chartData, setChartData] = useState([]);
 
-  // 按钮1：GET请求，传input1作为url参数
-  const handleGetReq = async () => {
-    try {
-      const res = await axios.get(`http://127.0.0.1:5000/api/get_demo`, {
-        params: {
-          text: input1
-        }
-      });
-      setResMsg(res.data.msg);
-    } catch (err) {
-      setResMsg("请求失败，请检查后端服务是否启动");
-    }
-  };
+  // 切换菜单自动请求对应图表数据
+  useEffect(() => {
+    const fetchData = async () => {
+      let url = "";
+      switch(activeKey) {
+        case "year":
+          url = "http://127.0.0.1:5000/api/chart/year_count";
+          break;
+        case "region":
+          url = "http://127.0.0.1:5000/api/chart/region_count";
+          break;
+        case "type":
+          url = "http://127.0.0.1:5000/api/chart/type_count";
+          break;
+        case "score":
+          url = "http://127.0.0.1:5000/api/chart/score_vote";
+          break;
+        default:
+          return;
+      }
+      const res = await axios.get(url);
+      setChartData(res.data.data);
+    };
+    fetchData();
+  }, [activeKey])
 
-  // 按钮2：POST请求，input2放body，input3放url param
-  const handlePostReq = async () => {
-    try {
-      const res = await axios.post(
-        `http://127.0.0.1:5000/api/post_demo?param_text=${input3}`,
-        {
-          body_text: input2
+  // 根据菜单渲染对应图表配置
+  const getOption = () => {
+    switch(activeKey) {
+      case "year":
+        return {
+          title: { text: "各年份电影数量分布" },
+          xAxis: { type: "category", data: chartData.map(item => item.year) },
+          yAxis: { type: "value" },
+          series: [{ type: "bar", data: chartData.map(item => item.count) }]
         }
-      );
-      setResMsg(res.data.msg);
-    } catch (err) {
-      setResMsg("请求失败，请检查后端服务是否启动");
+      case "region":
+        return {
+          title: { text: "各制片地区电影数量" },
+          xAxis: { type: "category", data: chartData.map(item => item.name) },
+          yAxis: { type: "value" },
+          series: [{ type: "bar", data: chartData.map(item => item.value) }]
+        }
+      case "type":
+        return {
+          title: { text: "影片类型占比" },
+          series: [{ type: "pie", radius: "50%", data: chartData }]
+        }
+      case "score":
+        return {
+          title: { text: "评分-评价人数热度散点图" },
+          xAxis: { type: "value", name: "评分" },
+          yAxis: { type: "value", name: "评价人数" },
+          series: [{ type: "scatter", data: chartData.map(item => [item.score, item.vote, item.name]) }]
+        }
+      default:
+        return {}
     }
-  };
+  }
 
   return (
-    <div style={{ padding: "40px", width: "600px", margin: "0 auto" }}>
-      <h2>第四周前后端联调Demo</h2>
-      <div style={{ margin: "16px 0" }}>
-        <p>输入框1（GET参数）：</p>
-        <input
-          value={input1}
-          onChange={(e) => setInput1(e.target.value)}
-          style={{ width: "100%", padding: "8px" }}
-          placeholder="输入内容，点击下方GET按钮发送"
-        />
-        <button onClick={handleGetReq} style={{ marginTop: "8px", padding: "6px 16px" }}>
-          GET发送（任务2）
-        </button>
-      </div>
-
-      <div style={{ margin: "16px 0" }}>
-        <p>输入框2（POST-body参数）：</p>
-        <input
-          value={input2}
-          onChange={(e) => setInput2(e.target.value)}
-          style={{ width: "100%", padding: "8px" }}
-          placeholder="POST请求body内容"
-        />
-      </div>
-
-      <div style={{ margin: "16px 0" }}>
-        <p>输入框3（POST-url参数）：</p>
-        <input
-          value={input3}
-          onChange={(e) => setInput3(e.target.value)}
-          style={{ width: "100%", padding: "8px" }}
-          placeholder="POST请求url拼接参数"
-        />
-        <button onClick={handlePostReq} style={{ marginTop: "8px", padding: "6px 16px" }}>
-          POST发送（任务3）
-        </button>
-      </div>
-
-      <div style={{ marginTop: "30px", border: "1px solid #ccc", padding: "12px" }}>
-        <h4>后端返回结果：</h4>
-        <p>{resMsg}</p>
-      </div>
-    </div>
+    <Layout style={{ minHeight: "100vh" }}>
+      {/* Ant Design 侧边菜单 */}
+      <Sider width={200}>
+        <Menu
+          mode="vertical"
+          selectedKeys={[activeKey]}
+          onClick={({key}) => setActiveKey(key)}
+          style={{ height: "100%" }}
+        >
+          <Menu.Item key="year">年份统计柱状图</Menu.Item>
+          <Menu.Item key="region">地区统计柱状图</Menu.Item>
+          <Menu.Item key="type">影片类型饼图</Menu.Item>
+          <Menu.Item key="score">评分热度散点图</Menu.Item>
+        </Menu>
+      </Sider>
+      <Content style={{ padding: "30px" }}>
+        <EChartsReact option={getOption()} style={{ width:"100%", height:"600px" }} />
+      </Content>
+    </Layout>
   );
 }
 

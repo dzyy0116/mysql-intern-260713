@@ -28,3 +28,4 @@ python3 douban_movie_spider.py
 3. 启动方式
    后端：cd flask_backend && python3 app.py
    前端：cd react_frontend && npm start
+## 第五周：Ant Design侧边菜单 + ECharts数据库可视化，Flask提供电影统计查询接口
